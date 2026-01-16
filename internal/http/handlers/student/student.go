@@ -12,10 +12,11 @@ import (
 	"github.com/Devanshu-Kolhe/students-api/internal/storage"
 	"github.com/Devanshu-Kolhe/students-api/internal/types"
 	"github.com/Devanshu-Kolhe/students-api/internal/utils/response"
+	// "github.com/go-chi/chi/v5"
 	"github.com/go-playground/validator/v10"
 )
 
-func New(storage storage.Storage) http.HandlerFunc {
+func Create(storage storage.Storage) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 
 		slog.Info("Creating a student")
@@ -87,5 +88,68 @@ func GetList(storage storage.Storage) http.HandlerFunc {
 		}
 
 		response.Writejson(w, http.StatusOK, students)
+	}
+}
+
+func UpdateStudentById(storage storage.Storage) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		defer r.Body.Close()
+
+		var student types.Student
+		slog.Info("Updating a Student..")
+
+		decoder := json.NewDecoder(r.Body)
+		decoder.DisallowUnknownFields()
+
+		idStr := r.PathValue("id")
+		if idStr == "" {
+			response.Writejson(w, http.StatusBadRequest,
+				response.GeneralError(fmt.Errorf("student id is required")))
+			return
+		}
+
+		id, err := strconv.Atoi(idStr)
+		if err != nil || id <= 0 {
+			response.Writejson(w, http.StatusBadRequest,
+				response.GeneralError(fmt.Errorf("invalid student id")))
+			return
+		}
+
+		if err := decoder.Decode(&student); err != nil {
+			if errors.Is(err, io.EOF) {
+				response.Writejson(w, http.StatusBadRequest, response.GeneralError(fmt.Errorf("empty request body")))
+				return
+			}
+			response.Writejson(w, http.StatusBadRequest,
+				response.GeneralError(err))
+			return
+		}
+		if student.Id != 0 && student.Id != id {
+			response.Writejson(w, http.StatusBadRequest,
+				response.GeneralError(fmt.Errorf("id in URL and body do not match")))
+			return
+		}
+
+		student.Id = id
+
+		var validate = validator.New()
+		if err := validate.Struct(student); err != nil {
+			validateErrs := err.(validator.ValidationErrors)
+			response.Writejson(w, http.StatusBadRequest, response.ValidationError(validateErrs))
+			return
+		}
+
+		updatedStudent, err := storage.UpdateStudent(student)
+		if err != nil {
+			slog.Error("Failed to Update student", 
+			"id",id,	
+			"error", err,
+		)
+			response.Writejson(w, http.StatusInternalServerError, response.GeneralError(err))
+			return
+		}
+		slog.Info("Student Updated successfully", "id", student.Id)
+
+		response.Writejson(w, http.StatusOK, updatedStudent)
 	}
 }

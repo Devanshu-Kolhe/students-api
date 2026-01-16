@@ -5,7 +5,9 @@ import (
 	"fmt"
 
 	"github.com/Devanshu-Kolhe/students-api/internal/config"
+	// "github.com/Devanshu-Kolhe/students-api/internal/http/handlers/student"
 	"github.com/Devanshu-Kolhe/students-api/internal/types"
+
 	// "github.com/Devanshu-Kolhe/students-api/internal/utils/response"
 	_ "github.com/mattn/go-sqlite3"
 )
@@ -81,31 +83,60 @@ func (s *Sqlite) GetStudentById(id int64) (types.Student, error) {
 	return student, nil
 }
 
-
-func (s *Sqlite) GetStudents()([]types.Student, error){
-	stmt,err := s.Db.Prepare("SELECT id, name, email, age FROM students")
-	if err!=nil{
-		return nil,err
+func (s *Sqlite) GetStudents() ([]types.Student, error) {
+	stmt, err := s.Db.Prepare("SELECT id, name, email, age FROM students")
+	if err != nil {
+		return nil, err
 	}
 	defer stmt.Close()
 
-	rows,err := stmt.Query()
-	if err!=nil{
-		return nil,err
+	rows, err := stmt.Query()
+	if err != nil {
+		return nil, err
 	}
 	defer rows.Close()
 
 	var students []types.Student
 
-	for rows.Next(){
+	for rows.Next() {
 		var student types.Student
 
 		err := rows.Scan(&student.Id, &student.Name, &student.Email, &student.Age)
-		if err!=nil{
-			return nil,err
+		if err != nil {
+			return nil, err
 		}
 
 		students = append(students, student)
 	}
 	return students, nil
+}
+
+func (s *Sqlite) UpdateStudent(student types.Student) (types.Student, error) {
+	stmt, err := s.Db.Prepare("UPDATE students SET name = ?,email = ?,age = ? WHERE id = ?")
+
+	if err != nil {
+		return types.Student{}, err
+	}
+	defer stmt.Close()
+
+	result, err := stmt.Exec(
+		student.Name,
+		student.Email,
+		student.Age,
+		student.Id,
+	)
+
+	if err != nil {
+		return types.Student{}, fmt.Errorf("update error:%w", err)
+	}
+
+	rowsaffected, err := result.RowsAffected()
+	if err != nil {
+		return types.Student{}, err
+	}
+
+	if rowsaffected == 0 {
+		return types.Student{}, fmt.Errorf("No student found with id:%s", fmt.Sprint(student.Id))
+	}
+	return student, nil
 }
