@@ -140,3 +140,28 @@ func (s *Sqlite) UpdateStudent(student types.Student) (types.Student, error) {
 	}
 	return student, nil
 }
+
+func (s *Sqlite) DeleteStudent(id int64) error {
+	stmt, err := s.Db.Prepare("DELETE FROM students WHERE id = ?")
+	
+	if err != nil {
+		return err
+	}
+	defer stmt.Close()
+
+	result, err := stmt.Exec(id)
+
+	if err != nil {
+		return fmt.Errorf("update error:%w", err)
+	}
+
+	rowsaffected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+
+	if rowsaffected == 0 {
+		return sql.ErrNoRows
+	}
+	return nil
+}

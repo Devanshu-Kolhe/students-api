@@ -8,11 +8,9 @@ import (
 	"log/slog"
 	"net/http"
 	"strconv"
-
 	"github.com/Devanshu-Kolhe/students-api/internal/storage"
 	"github.com/Devanshu-Kolhe/students-api/internal/types"
 	"github.com/Devanshu-Kolhe/students-api/internal/utils/response"
-	// "github.com/go-chi/chi/v5"
 	"github.com/go-playground/validator/v10"
 )
 
@@ -151,5 +149,39 @@ func UpdateStudentById(storage storage.Storage) http.HandlerFunc {
 		slog.Info("Student Updated successfully", "id", student.Id)
 
 		response.Writejson(w, http.StatusOK, updatedStudent)
+	}
+}
+
+func DeleteStudentById(storage storage.Storage) http.HandlerFunc{
+	return func(w http.ResponseWriter,r *http.Request){
+
+		id := r.PathValue("id")
+		
+		if id ==""{
+			response.Writejson(w,http.StatusBadRequest,response.GeneralError(fmt.Errorf("valid id is required")))
+			return
+		}
+		
+		idINt, err := strconv.Atoi(id)
+		if err != nil || idINt <= 0 {
+			response.Writejson(w, http.StatusBadRequest,
+				response.GeneralError(fmt.Errorf("invalid student id")))
+				return
+		}
+			
+		slog.Info("Deleting a student..",slog.String("id",id))
+		
+		errs := storage.DeleteStudent(int64(idINt))
+		if errs != nil{
+			slog.Error("Failed to delete student:",
+			"id",id,
+			"error",errs,
+			)
+			response.Writejson(w,http.StatusInternalServerError,response.GeneralError(errs))
+			return
+		}
+
+		w.WriteHeader(http.StatusNoContent)
+
 	}
 }
